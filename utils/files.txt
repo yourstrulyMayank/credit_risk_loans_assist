@@ -1,0 +1,2 @@
+pii.jpg.pdf:1
+image_text.pdf:5

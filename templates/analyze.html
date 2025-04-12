@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyze Document</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #f4f4f4;
+        }
+
+        header img {
+            height: 50px;
+        }
+
+        nav {
+            width: 100%;
+            text-align: left;
+            padding: 10px 20px;
+            background-color: #005bb5;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            margin-right: 20px;
+            display: inline-block;
+        }
+
+        nav a.greyed {
+            color: #ccc;
+            pointer-events: none;
+        }
+
+        nav a:hover:not(.greyed) {
+            background-color: #0071e3;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .table-container {
+            width: 40%;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        .table-container th,
+        .table-container td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .table-container th {
+            background-color: #f4f4f4;
+        }
+
+        .question-container {
+            width: 55%;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            max-height: 80vh;
+        }
+
+        .question-section {
+            margin-bottom: 20px;
+        }
+
+        .question-heading {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .answer-output {
+            padding: 10px;
+            background-color: #f4f4f4;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            min-height: 40px;
+            word-wrap: break-word;
+        }
+
+        .home-button {
+            position: fixed;            
+            bottom: 20px;
+            left: 20px;
+            background-color: #ccc;
+            color: black;
+            text-decoration: none;
+            font-size: 16px;
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+
+        .home-button:hover {
+            background-color: #bbb;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="/static/infosys.png" alt="Logo">
+        <img src="/static/logo.png" alt="Logo">
+    </header>
+    <nav>
+        <a href="/">Credit Risk Assist</a>        
+    </nav>
+    <h2 style="margin-left: 20px;">Company Name: {{ data['Company Name'] }}</h2>
+    <div class="container">
+        <!-- Left: Table -->
+        <div class="table-container">
+            <h2>CARM Form</h2>
+            <table>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>                
+                <tr>
+                    <td>Net Sales</td>
+                    <td>{{ data['Net Sales'] }}</td>
+                </tr>
+                <tr>
+                    <td>Gross Profit</td>
+                    <td>{{ data['Gross Profit'] }}</td>
+                </tr>
+                <tr>
+                    <td>Debt/Equity Ratio</td>
+                    <td>{{ data['Debt/Equity Ratio'] }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Right: Questions -->
+        <div class="question-container">
+            <h2>Analysis</h2>
+
+            {% for key, value in data.items() %}
+            {% if key != "Company Name" and key != "Net Sales" and key != "Gross Profit" and key != "Debt/Equity Ratio" %}
+            <div class="question-section">
+                <div class="question-heading">{{ key }}</div>
+                <div class="answer-output">{{ value }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Back to Home Button -->
+    <a href="/" class="home-button">Back to Home</a>
+</body>
+</html>

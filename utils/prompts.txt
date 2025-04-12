@@ -1,0 +1,15 @@
+Net Sales: What is the Net Sales for the latest year? If you don't find Net Sales, try to search for relevant fields that tell about Sales or Revenue.
+
+Gross Profit: What is the Gross Profit Amount for the latest year? If you don't find Net Sales, try to search for relevant fields that tell about profit.
+
+Debt/Equity Ratio: What is the Debt/Equity Ratio for the latest year? 
+
+Company Name: What is the name of the company mentioned in the document? If company name is not present, just state that Company Name is not mentioned in the document.
+
+Long Term Liabilities: What are the long term liabilities for the latest year?
+
+Dividend Payment: What is the Divident Payment for the latest year? 
+
+Earnings per Share: What is the earnings per share for the latest year?
+
+Total Assets: How much are the total assets for the latest year?

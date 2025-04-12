@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask a Question</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between; /* Added to spread the content */
+            align-items: center;  /* Vertically centers the content */
+            padding: 10px 20px;
+            background-color: #f4f4f4;
+            position: relative;
+        }
+
+        header img {
+            height: 50px;
+            margin-right: 20px;
+        }
+
+        nav {
+            width: 100%;
+            text-align: left;
+            padding: 10px 20px;
+            background-color: #005bb5;
+            position: relative;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            margin-right: 20px;
+            display: inline-block;
+        }
+
+        nav a.greyed {
+            color: #ccc;
+            pointer-events: none;
+        }
+
+        nav a:hover:not(.greyed) {
+            background-color: #0071e3;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            margin-left: 20%; /* Adjust for left sidebar */
+            margin-right: 20%; /* Adjust for right sidebar */
+            padding: 20px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            width: 30%;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .button {
+            background-color: #0071e3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #005bb5;
+        }
+
+        .toggle-button {
+            margin: 20px 0;
+            padding: 5px 20px;
+            background-color: #0071e3;
+            color: white;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .sidebar {
+            position: relative;
+            top: 0px;
+            bottom: 0;            
+            width: 15%;             
+            background-color: #A7C7E7;
+            color: #3a3a3a;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar.left {
+            float: left;
+            height: 100vh;
+        }
+
+        .sidebar.right {
+            float: right;
+            top: 30px;
+            right: 10px;
+        }
+
+        .sidebar h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .sidebar ul {
+            list-style-type: none;
+            padding: 0;
+            
+        }
+
+        .sidebar ul li {
+            margin: 10px 0;
+        }
+
+        .sidebar ul li a {
+            color: #000000;
+            text-decoration: none;
+        }
+
+        .sidebar ul li a:hover {
+            text-decoration: underline;
+        }
+
+        .home-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: #ccc;
+            color: black;
+            text-decoration: none;
+            font-size: 16px;
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+
+        .home-button:hover {
+            background-color: #bbb;
+        }
+
+        .table-layout {
+            display: none;
+            width: 80%;  /* Increase the width of the table */
+            margin: 0 auto;  /* Center the table */
+        }
+
+        .table-layout table {
+            width: 100%;  /* Full width within the container */
+        }
+        
+        .table-layout th, .table-layout td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+            width: 50%; /* Equal width for columns */
+        }
+
+        .table-layout th {
+            background-color: #f4f4f4;
+        }
+
+        .table-layout td input {
+            width: 100%;
+            padding: 5px;
+        }
+        .response-box {
+            margin: 20px auto;
+            padding: 20px;
+            width: 50%;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .question-input {
+            width: calc(100% - 10px); /* Fit the input inside the cell with padding */
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        .answer-output {
+            padding: 10px;
+            background-color: #f4f4f4;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            min-height: 40px; /* Set a minimum height */
+            word-wrap: break-word; /* Prevent long text from overflowing */
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <img src="/static/infosys.png" alt="Logo">
+        <img src="/static/logo.png" alt="Logo">
+    </header>
+    <nav>
+        <a href="/">Credit Risk Assist</a>        
+    </nav>
+
+    <!-- Sidebar for Document Titles -->
+    <div class="sidebar left">
+        <h2>Available Documents</h2>
+        <ul style="list-style-type:disc;">
+            {% for title in document_titles %}
+                <li>{{ title }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <!-- Sidebar for Suggested Questions -->
+    <div class="sidebar right">
+        <h2>Suggested Questions</h2>
+        <ul align="left">
+            <li><a href="#">What is credit risk?</a></li>
+            <li><a href="#">How do I calculate my credit score?</a></li>
+            <li><a href="#">What factors impact loan approval?</a></li>
+            <li><a href="#">How can I reduce credit card debt?</a></li>
+            <li><a href="#">What is a debt-to-income ratio?</a></li>
+        </ul>
+    </div>
+    <!-- Main Content -->
+    <div class="container">
+        <button id="toggle-layout" class="toggle-button">Grid</button>
+
+        <!-- Single Question Layout -->
+        <div class="single-question">
+            <h1>Ask a Question</h1>
+            <form action="/ask" method="POST">
+                <input type="text" name="question" placeholder="Enter your question here" required>
+                <br>
+                <button type="submit" class="button">Submit</button>
+            </form>
+            {% if response %}
+                <div class="response-box">
+                    <h2>Answer:</h2>
+                    <p>{{ response }}</p>
+                </div>
+            {% endif %}
+
+        </div>
+
+        
+       <!-- Tabular Layout -->
+    <div class="table-layout">
+        <h1>Tabular Questions</h1>
+        <table id="question-answer-table">
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Answer</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Prepopulate rows with suggested questions -->
+                <tr>
+                    <td><input type="text" class="question-input" value="What is credit risk?" /></td>
+                    <td><div class="answer-output"></div></td>
+                </tr>
+                <tr>
+                    <td><input type="text" class="question-input" value="How do I calculate my credit score?" /></td>
+                    <td><div class="answer-output"></div></td>
+                </tr>
+                <tr>
+                    <td><input type="text" class="question-input" value="What factors impact loan approval?" /></td>
+                    <td><div class="answer-output"></div></td>
+                </tr>
+            </tbody>
+        </table>
+        <button id="add-row" class="button">+</button>
+        <button id="remove-row" class="button" onclick="document.getElementById(
+            'question-answer-table').deleteRow(1)">-</button>
+        <button id="generate" class="button">Generate Answers</button>
+    </div>
+
+
+    
+
+    <!-- Back to Home Button -->
+    <a href="/" class="home-button">Back to Home</a>
+
+    <script>
+        // Toggle layout functionality
+        const toggleButton = document.getElementById("toggle-layout");
+        const singleQuestionLayout = document.querySelector(".single-question");
+        const tableLayout = document.querySelector(".table-layout");
+    
+        toggleButton.addEventListener("click", () => {
+            if (singleQuestionLayout.style.display === "none") {
+                singleQuestionLayout.style.display = "block";
+                tableLayout.style.display = "none";
+                toggleButton.textContent = "Grid";
+            } else {
+                singleQuestionLayout.style.display = "none";
+                tableLayout.style.display = "block";
+                toggleButton.textContent = "One";
+            }
+        });
+    
+        // Generate answers functionality
+        document.addEventListener("DOMContentLoaded", () => {
+            const tableBody = document.querySelector("#question-answer-table tbody");
+            const addRowButton = document.getElementById("add-row");            
+            const generateButton = document.getElementById("generate");
+    
+            // Add a new row when the "+" button is clicked
+            addRowButton.addEventListener("click", () => {
+                const newRow = document.createElement("tr");
+                newRow.innerHTML = `
+                    <td><input type="text" class="question-input" placeholder="Enter your question" /></td>
+                    <td><div class="answer-output"></div></td>
+                `;
+                tableBody.appendChild(newRow);
+            });
+
+                
+            // Generate answers for all questions in the grid
+            generateButton.addEventListener("click", async () => {
+                const rows = document.querySelectorAll("#question-answer-table tbody tr");
+                const questions = [];
+    
+                rows.forEach((row) => {
+                    const questionInput = row.querySelector(".question-input").value.trim();
+                    if (questionInput) questions.push(questionInput);
+                });
+    
+                if (questions.length > 0) {
+                    // Show loading indicators for all rows
+                    rows.forEach((row) => {
+                        const answerOutput = row.querySelector(".answer-output");
+                        answerOutput.textContent = "Loading...";
+                    });
+    
+                    try {
+                        // Send all questions to the backend
+                        const response = await fetch("/batch_ask", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ questions }),
+                        });
+    
+                        const results = await response.json();
+                        results.answers.forEach((answer, index) => {
+                            const row = rows[index];
+                            const answerOutput = row.querySelector(".answer-output");
+                            answerOutput.textContent = answer || "No answer available.";
+                        });
+                    } catch (error) {
+                        rows.forEach((row) => {
+                            const answerOutput = row.querySelector(".answer-output");
+                            answerOutput.textContent = "Error fetching answer.";
+                        });
+                    }
+                }
+            });
+        });
+        
+    </script>
+    
+</body>
+</html>
