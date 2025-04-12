@@ -213,6 +213,16 @@ def remove_existing_documents(db, sources):
         print(f"Deleting {len(existing_ids)} existing entries from the database...")
         db.delete(existing_ids)
         print("Old entries removed successfully.")
+        # Remove from file list
+        if os.path.exists(AVAILABLE_FILES_PATH):
+            with open(AVAILABLE_FILES_PATH, "r") as file:
+                lines = file.readlines()
+            new_lines = [
+                line for line in lines if line.split(":")[0] not in sources
+            ]
+            with open(AVAILABLE_FILES_PATH, "w") as file:
+                file.writelines(new_lines)
+            print(f"Removed entries from {AVAILABLE_FILES_PATH}")
     else:
         print("No existing entries found for these documents.")
 

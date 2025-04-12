@@ -88,6 +88,17 @@
             overflow-y: auto;
             max-height: 80vh;
         }
+        .summary-container {
+            width: 100%;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        .summary-container h2 {
+            margin-bottom: 10px;
+        }
 
         .question-section {
             margin-bottom: 20px;
@@ -127,11 +138,11 @@
 </head>
 <body>
     <header>
-        <img src="/static/infosys.png" alt="Logo">
-        <img src="/static/logo.png" alt="Logo">
+        <img src="/static/infosys.png" alt="Logo" scale="2">
+        <img src="/static/ABCBank.png" alt="Logo">
     </header>
     <nav>
-        <a href="/">Credit Risk Assist</a>        
+        <a href="/">Credit Risk Loan Assist</a>        
     </nav>
     <h2 style="margin-left: 20px;">Company Name: {{ data['Company Name'] }}</h2>
     <div class="container">
@@ -171,6 +182,10 @@
             {% endif %}
             {% endfor %}
         </div>
+    </div>
+    <div class="summary-container">
+        <h2>Summary</h2>
+        <h4>{{ data['Summary'] }}</h4>
     </div>
     
     <!-- Back to Home Button -->

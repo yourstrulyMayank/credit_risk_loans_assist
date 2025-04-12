@@ -1,27 +1,39 @@
 import os
+import sys
 import threading
 from flask import Flask, render_template, request, redirect, url_for, jsonify
-import populate_database
-import clear_database
-from query_data import query_rag, query_rag_latest
-from get_embedding_function import get_embedding_function
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaLLM as Ollama
+from langchain.chains.summarize import load_summarize_chain
+from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
 
+import populate_database
+import clear_database
+from get_embedding_function import get_embedding_function
+from query_data import query_rag, query_rag_latest
+
+# ------------------- Config -------------------
 app = Flask(__name__)
-UPLOAD_FOLDER = 'data\\new'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+UPLOAD_FOLDER = 'data/new'
 CHROMA_PATH = "chroma"
-PROMPTS_FILE_PATH = "utils//prompts.txt"
-processing_status_upload = {"complete": False}
-processing_status_fetch = {"complete": False}
+PROMPTS_FILE_PATH = "utils/prompts.txt"
+FILES_TRACK_PATH = "utils/files.txt"
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-
+# ------------------- Globals -------------------
 embedding_function = get_embedding_function()
 db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_function)
 model = Ollama(model="llama3.2")
 
+processing_status_upload = {"complete": False}
+processing_status_fetch = {"complete": False}
+fetched_results = {}
+latest_file_data = {}
+
+# ------------------- Routes -------------------
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -29,18 +41,16 @@ def index():
 
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return redirect(url_for('index'))
-    file = request.files['file']
-    if file.filename == '':
-        return redirect(url_for('index'))
-    if file:
+    file = request.files.get('file')
+    if file and file.filename:
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(filepath)
 
-        # Run populate_database.py in the background
-        threading.Thread(target=run_populate_database).start()
-        return render_template('loading.html')  # Show loading page while population happens
+        update_file_registry(file.filename)
+
+        threading.Thread(target=run_populate_database, args=(file.filename,)).start()
+        return render_template('loading.html')
+    return redirect(url_for('index'))
 
 
 @app.route('/ask', methods=['GET', 'POST'])
@@ -49,83 +59,127 @@ def ask():
     if request.method == 'POST':
         question = request.form.get('question')
         if question:
-            # Process question using query_rag
-            response = query_rag(question, db, model)  # Replace with actual RAG logic
+            response = query_rag(question, db, model)
             return render_template('ask.html', response=response, document_titles=document_titles)
     return render_template('ask.html', document_titles=document_titles)
 
 
 @app.route('/batch_ask', methods=['POST'])
 def batch_ask():
-    data = request.json
-    questions = data.get('questions', [])
-    answers = []
-
-    # Process each question and append the response
-    for question in questions:
-        answer = query_rag(question, db, model)  # Replace with actual RAG logic
-        answers.append(answer)
-
+    questions = request.json.get('questions', [])
+    answers = [query_rag(q, db, model) for q in questions]
     return jsonify({"answers": answers})
 
 
-@app.route('/clear_database', methods=['GET','POST'])
-def clear_database_route():    
-    
-    try:               
-        if clear_database.clear_database(db):
-            # embedding_function = get_embedding_function()
-            # db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_function)
-            # model = Ollama(model="mistral")
-            return jsonify({"success": True})
-        else:
-            return jsonify({"success": False})
+@app.route('/clear_database', methods=['GET', 'POST'])
+def clear_database_route():
+    try:
+        removed_files = clear_database.clear_database(db)
+        sync_file_registry(removed_files)
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-def restart_flask_app():
-    """Restart the Flask application programmatically."""
-    print("Restarting Flask application...")
-    os.execv(sys.executable, ['python'] + sys.argv)
+
+@app.route('/fetching_results', methods=['GET'])
+def fetching_results():
+    return render_template('fetching_results.html')
 
 
-def run_populate_database():
+@app.route('/analyze', methods=['GET'])
+def analyze():
+    return render_template('analyze.html', data=fetched_results)
+
+
+@app.route('/check_status_upload')
+def check_status_upload():
+    return jsonify({"complete": processing_status_upload["complete"]})
+
+
+@app.route('/check_status_fetch')
+def check_status_fetch():
+    return jsonify({"complete": processing_status_fetch["complete"]})
+
+
+# ------------------- Background Tasks -------------------
+def run_populate_database(latest_filename):
     global processing_status_upload
     processing_status_upload["complete"] = False
     try:
         populate_database.populate_database(db)
     finally:
         processing_status_upload["complete"] = True
-        # After database population, redirect to fetching results
-        threading.Thread(target=redirect_to_fetching_results).start()
+        threading.Thread(target=run_query_database, args=(latest_filename,)).start()
 
 
-@app.route('/check_status_upload', methods=['GET'])
-def check_status_upload():
-    return jsonify({"complete": processing_status_upload["complete"]})
+def run_query_database(latest_file):
+    global fetched_results, processing_status_fetch
+    processing_status_fetch["complete"] = False
+
+    # Load prompts
+    prompts = load_prompts(PROMPTS_FILE_PATH)
+    results = {k: query_rag_latest(v, db, model, latest_file) for k, v in prompts.items()}
+    docs = db.get(include=["metadatas", "documents"])
+    file_chunks = [
+        Document(page_content=text, metadata=meta)
+        for text, meta in zip(docs["documents"], docs["metadatas"])
+        if meta.get("source") == latest_file
+    ]
+    print(file_chunks)
+    print('--------------')
+    print(latest_file)
+    summary = generate_summary(file_chunks, latest_file)
+    results["Summary"] = summary
+
+    # # Generate file-specific summary
+    # summary_prompt = f"Provide a concise summary of the key financial insights in the file '{latest_file}'."
+    # summary = query_rag_latest(summary_prompt, db, model, latest_file)
+    # results["Summary"] = summary
+
+    fetched_results.update(results)
+    processing_status_fetch["complete"] = True
 
 
-@app.route('/check_status_fetch', methods=['GET'])
-def check_status_fetch():
-    return jsonify({"complete": processing_status_fetch["complete"]})
+# ------------------- Helpers -------------------
+def update_file_registry(filename):
+    if not os.path.exists(FILES_TRACK_PATH):
+        with open(FILES_TRACK_PATH, 'w'): pass
+    with open(FILES_TRACK_PATH, 'r+') as f:
+        lines = [line.strip().split(':')[0] for line in f.readlines()]
+        if filename not in lines:
+            f.write(f"{filename}:\n")
 
+
+def sync_file_registry(removed_files):
+    if not os.path.exists(FILES_TRACK_PATH):
+        return
+    with open(FILES_TRACK_PATH, 'r') as f:
+        lines = f.readlines()
+    with open(FILES_TRACK_PATH, 'w') as f:
+        for line in lines:
+            fname = line.strip().split(":")[0]
+            if fname not in removed_files:
+                f.write(line)
+
+def generate_summary(chunks, file_name):
+    llm = Ollama(model="llama3.2")
+    chain = load_summarize_chain(llm, chain_type="stuff")
+    file_chunks = [chunk for chunk in chunks if chunk.metadata.get("source") == file_name]
+    return chain.invoke(file_chunks)
 
 def load_file_titles():
     titles = []
     try:
-        with open("utils/files.txt", "r") as file:
+        with open(FILES_TRACK_PATH, "r") as file:
             for line in file:
-                print(line)
                 key, _ = line.strip().split(":")
                 titles.append(key)
     except FileNotFoundError:
         pass
     return titles
 
+
 def load_prompts(file_path):
-    """
-    Load prompts from a text file and return as a dictionary.
-    """
     prompts = {}
     if os.path.exists(file_path):
         with open(file_path, 'r') as f:
@@ -135,111 +189,7 @@ def load_prompts(file_path):
                     prompts[key.strip()] = value.strip()
     return prompts
 
-@app.route('/fetching_results', methods=['GET'])
-def fetching_results():
-    """
-    Render fetching_results.html and start querying the database for predefined questions.
-    """
-    return render_template('fetching_results.html')
 
-
-# prepopulated_questions = {
-#     "Net Sales": "What is the Net Sales?",
-#     "Gross Profit": "What is the Gross Profit?",
-#     "Debt/Equity Ratio": "What is the Debt/Equity Ratio?",
-#     "Company Name": "What is the name of the company mentioned in the document?"
-# }
-
-fetched_results = {}  # Store results globally for simplicity
-
-
-def query_vector_db(question, db, model, latest_file):
-    answer = query_rag_latest(question, db, model, latest_file)  
-    return answer
-
-
-def redirect_to_fetching_results():
-    # Wait until the database population is complete
-    while not processing_status_upload["complete"]:
-        pass
-
-    # Once population is complete, move to querying the database
-    processing_status_fetch["complete"] = False
-    threading.Thread(target=run_query_database).start()
-
-
-# def run_query_database():
-#     """
-#     Query the database for prepopulated questions and update the fetched_results.
-#     """
-#     global fetched_results
-#     global processing_status_fetch
-
-#     # Simulate querying the database
-#     results = {}
-#     for key, question in prepopulated_questions.items():
-#         results[key] = query_vector_db(question, db, model)
-
-#     fetched_results.update(results)
-
-#     # Mark fetching as complete and redirect to analyze page
-#     processing_status_fetch["complete"] = True
-#     with app.app_context():
-#         return render_template('analyze.html', data=fetched_results)
-
-def run_query_database():
-    """
-    Query the database for prepopulated questions and update the fetched_results.
-    """
-    global fetched_results
-    global processing_status_fetch
-
-    # Get all items in the database
-    all_items = db.get(include=["metadatas", "documents"])
-    latest_file = None
-    latest_file_ids = []
-
-    # Extract the latest file name from metadata
-    if all_items and "metadatas" in all_items and all_items["metadatas"]:
-        latest_metadata = all_items["metadatas"][-1]  # Get the last metadata item
-        latest_file = latest_metadata.get("source")
-
-    # Collect IDs for the latest file
-    if latest_file:
-        latest_file_ids = [
-            idx for idx, metadata in enumerate(all_items["metadatas"])
-            if metadata.get("source") == latest_file
-        ]
-
-    # Save the latest file and IDs globally
-    global latest_file_data
-    latest_file_data = {"filename": latest_file, "ids": latest_file_ids}
-
-    # Simulate querying the database for each prepopulated question
-    results = {}
-    prepopulated_questions = load_prompts(PROMPTS_FILE_PATH)
-    print(prepopulated_questions)
-    for key, question in prepopulated_questions.items():
-        results[key] = query_vector_db(question, db, model, latest_file)
-
-    fetched_results.update(results)
-
-    # Mark fetching as complete and redirect to analyze page
-    processing_status_fetch["complete"] = True
-    with app.app_context():
-        return render_template('analyze.html', data=fetched_results)
-
-
-
-@app.route('/analyze', methods=['GET'])
-def analyze():
-    """
-    Render analyze.html with fetched results.
-    """
-    return render_template('analyze.html', data=fetched_results)
-
-
+# ------------------- Main -------------------
 if __name__ == '__main__':
-    
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.run(debug=True)
