@@ -7,7 +7,8 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaLLM as Ollama
 import os
 from get_embedding_function import get_embedding_function
-
+from logger_utils import setup_logger
+logger = setup_logger()
 # CHROMA_PATH = "chroma"
 
 # PROMPT_TEMPLATE = """
@@ -32,6 +33,7 @@ def main():
 
 
 def query_rag(query_text: str, db, model):
+    logger.info(f"Querying RAG with text: {query_text}")
     PROMPT_TEMPLATE = """
     Answer the question based only on the following context:
 
@@ -59,9 +61,11 @@ def query_rag(query_text: str, db, model):
     sources = [doc.metadata.get("id", None) for doc, _score in results]
     formatted_response = f"Response: {response_text}\nSources: {sources}"
     print(formatted_response)
+    logger.info(f"Response: {formatted_response}")
     return response_text
 
 def query_rag_latest(query_text: str, db, model, latest_file):
+    logger.info(f"Querying RAG with text: {query_text}")
     PROMPT_TEMPLATE = """
     You are an AI assistant. Your task is to answer the given question truthfully and strictly based on the provided context.
 
@@ -98,11 +102,13 @@ def query_rag_latest(query_text: str, db, model, latest_file):
     sources = [doc.metadata.get("id", None) for doc, _score in results]
     formatted_response = f"Response: {response_text}\nSources: {sources}"
     # print(formatted_response)
+    logger.info(f"Response: {formatted_response}")
     return response_text
 
 
 
 def get_latest_file():
+    logger.info("Fetching the latest file from files.txt")
     """
     Read the last line from files.txt to get the most recent file.
     """
@@ -113,6 +119,7 @@ def get_latest_file():
                 # Extract the latest file from the last line
                 last_line = lines[-1].strip()
                 file_name, _ = last_line.split(":")
+                logger.info(f"Latest file: {file_name}")
                 return file_name
     return None
 

@@ -3,11 +3,14 @@ import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
 from fpdf import FPDF
+from logger_utils import setup_logger
+logger = setup_logger()
 
 # Set the Tesseract-OCR executable path
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def process_images_to_pdf(input_path):
+    logger.info(f"Processing file: {input_path}")
     output_pdf_path = input_path.replace('.pdf', '_text.pdf') if input_path.endswith('.pdf') else input_path + '.pdf'
     images = []
 
@@ -32,4 +35,4 @@ def process_images_to_pdf(input_path):
         pdf.multi_cell(0, 10, safe_text)
 
     pdf.output(output_pdf_path)
-    print(f"Processed and saved text-based PDF: {output_pdf_path}")
+    logger.info(f"Processed and saved text-based PDF: {output_pdf_path}")

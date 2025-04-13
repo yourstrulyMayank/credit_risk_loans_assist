@@ -19,3 +19,4 @@ pdf2image
 poppler-utils
 transformers
 torch
+logging
