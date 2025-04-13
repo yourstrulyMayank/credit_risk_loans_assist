@@ -172,7 +172,13 @@ def generate_summary(chunks, file_name):
     if not file_chunks:
         return "No content found for summary."
 
-    summary = chain.invoke(file_chunks)
+    result = chain.invoke(file_chunks)
+    summary = result["output_text"].strip()
+
+    # Optional cleanup: remove heading if present
+    if summary.lower().startswith("here is a concise summary"):
+        summary = summary.split(":", 1)[-1].strip()
+
     return summary
 
 def load_file_titles():
