@@ -190,9 +190,24 @@ def add_file_to_list(db, file_name, new_chunk_count):
     existing_chunk_count = len(existing_chunks)
     chunk_difference = new_chunk_count - existing_chunk_count
 
-    # Append the new file name and chunk count to the file list.
-    with open(AVAILABLE_FILES_PATH, "a") as file:
-        file.write(f"{file_name}:{chunk_difference}\n")
+     # Read current lines and filter out lines for the file
+    if os.path.exists(AVAILABLE_FILES_PATH):
+        with open(AVAILABLE_FILES_PATH, "r") as file:
+            lines = file.readlines()
+        lines = [line for line in lines if not line.startswith(f"{file_name}:")]
+    else:
+        lines = []
+
+    # Append the new entry
+    lines.append(f"{file_name}:{chunk_difference}\n")
+
+    # Write back to the file
+    with open(AVAILABLE_FILES_PATH, "w") as file:
+        file.writelines(lines)
+
+    # # Append the new file name and chunk count to the file list.
+    # with open(AVAILABLE_FILES_PATH, "a") as file:
+    #     file.write(f"{file_name}:{chunk_difference}\n")
 
     print(f"✅ Updated file list for {file_name} with {chunk_difference} new chunks.")
 

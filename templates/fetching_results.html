@@ -37,17 +37,20 @@
             fetch('/check_status_fetch')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.complete) {
+                    if (data.complete === true) {
                         window.location.href = '/analyze';
+                    } else if (data.complete === "error") {
+                        alert("❌ An error occurred during processing. Please check the logs or try again.");
                     } else {
                         setTimeout(checkStatus, 1000); // Retry after 1 second
                     }
                 })
                 .catch(error => console.error('Error checking status:', error));
         }
-
+    
         window.onload = checkStatus;
     </script>
+    
 </head>
 <body>
     <h1>Fetching Your Results...</h1>

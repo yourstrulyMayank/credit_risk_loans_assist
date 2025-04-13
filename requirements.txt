@@ -17,3 +17,4 @@ fpdf
 pillow
 pdf2image
 poppler-utils
+transformers

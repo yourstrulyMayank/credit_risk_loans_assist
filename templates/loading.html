@@ -37,17 +37,20 @@
             fetch('/check_status_upload')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.complete) {
-                        window.location.href = '/fetching_results'; 
+                    if (data.complete === true) {
+                        window.location.href = '/fetching_results';
+                    } else if (data.complete === "error") {
+                        alert("❌ An error occurred during upload processing. Please check the logs or try again.");
                     } else {
                         setTimeout(checkStatus, 1000); // Retry after 1 second
                     }
                 })
-                .catch(error => console.error('Error checking status:', error));
+                .catch(error => console.error('Error checking upload status:', error));
         }
-
+    
         window.onload = checkStatus;
     </script>
+    
 </head>
 <body>
     <h1>Processing your file...</h1>

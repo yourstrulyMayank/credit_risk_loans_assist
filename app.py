@@ -116,28 +116,28 @@ def run_query_database(latest_file):
     global fetched_results, processing_status_fetch
     processing_status_fetch["complete"] = False
 
-    # Load prompts
-    prompts = load_prompts(PROMPTS_FILE_PATH)
-    results = {k: query_rag_latest(v, db, model, latest_file) for k, v in prompts.items()}
-    docs = db.get(include=["metadatas", "documents"])
-    file_chunks = [
-        Document(page_content=text, metadata=meta)
-        for text, meta in zip(docs["documents"], docs["metadatas"])
-        if meta.get("source") == latest_file
-    ]
-    print(file_chunks)
-    print('--------------')
-    print(latest_file)
-    summary = generate_summary(file_chunks, latest_file)
-    results["Summary"] = summary
+    try:
+        prompts = load_prompts(PROMPTS_FILE_PATH)
+        results = {k: query_rag_latest(v, db, model, latest_file) for k, v in prompts.items()}
 
-    # # Generate file-specific summary
-    # summary_prompt = f"Provide a concise summary of the key financial insights in the file '{latest_file}'."
-    # summary = query_rag_latest(summary_prompt, db, model, latest_file)
-    # results["Summary"] = summary
+        docs = db.get(include=["metadatas", "documents"])
+        file_chunks = [
+            Document(page_content=text, metadata=meta)
+            for text, meta in zip(docs["documents"], docs["metadatas"])
+            if latest_file in meta.get("source", "")
+        ]
 
-    fetched_results.update(results)
-    processing_status_fetch["complete"] = True
+        summary = generate_summary(file_chunks, latest_file)
+        results["Summary"] = summary
+
+        fetched_results.update(results)
+        processing_status_fetch["complete"] = True
+
+    except Exception as e:
+        print(f"❌ Error during query: {e}")
+        with open("data/error_log.txt", "w") as f:
+            f.write(str(e))
+        processing_status_fetch["complete"] = "error"
 
 
 # ------------------- Helpers -------------------
@@ -163,9 +163,17 @@ def sync_file_registry(removed_files):
 
 def generate_summary(chunks, file_name):
     llm = Ollama(model="llama3.2")
-    chain = load_summarize_chain(llm, chain_type="stuff")
-    file_chunks = [chunk for chunk in chunks if chunk.metadata.get("source") == file_name]
-    return chain.invoke(file_chunks)
+    chain = load_summarize_chain(llm, chain_type="map_reduce")
+    file_chunks = [chunk for chunk in chunks if os.path.basename(chunk.metadata.get("source", "")) == file_name]
+    print(f"[DEBUG] Found {len(file_chunks)} chunks for file: {file_name}")
+    for i, ch in enumerate(file_chunks[:3]):
+        print(f"[DEBUG] Chunk {i+1} preview: {ch.page_content[:100]}")
+
+    if not file_chunks:
+        return "No content found for summary."
+
+    summary = chain.invoke(file_chunks)
+    return summary
 
 def load_file_titles():
     titles = []
