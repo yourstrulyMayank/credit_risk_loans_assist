@@ -3,7 +3,7 @@ langchain
 flask-wtf
 flask-bootstrap
 pypdf
-langchain
+langgraph
 chromadb # Vector storage
 pytest
 boto3

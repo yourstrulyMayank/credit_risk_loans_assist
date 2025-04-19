@@ -174,7 +174,7 @@
             <h2>Analysis</h2>
 
             {% for key, value in data.items() %}
-            {% if key != "Company Name" and key != "Net Sales" and key != "Gross Profit" and key != "Debt/Equity Ratio" %}
+            {% if key != "Company Name" and key != "Net Sales" and key != "Gross Profit" and key != "Debt/Equity Ratio" and key != "Summary"%}
             <div class="question-section">
                 <div class="question-heading">{{ key }}</div>
                 <div class="answer-output">{{ value }}</div>

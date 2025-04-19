@@ -3,7 +3,7 @@ import sys
 import threading
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from langchain_chroma import Chroma
-from langchain_ollama import OllamaLLM as Ollama
+from langchain_ollama import OllamaLLM
 from langchain.chains.summarize import load_summarize_chain
 from langchain_core.prompts import PromptTemplate
 from langchain_core.documents import Document
@@ -13,6 +13,9 @@ import clear_database
 from get_embedding_function import get_embedding_function
 from query_data import query_rag, query_rag_latest
 from logger_utils import setup_logger
+import asyncio
+# from async_summary_pipeline import generate_summary_with_graph
+from summary_utils import generate_summary
 
 # ------------------- Config -------------------
 app = Flask(__name__)
@@ -27,7 +30,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ------------------- Globals -------------------
 embedding_function = get_embedding_function()
 db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_function)
-model = Ollama(model="llama3.2")
+model = OllamaLLM(model="llama3.2")
 
 processing_status_upload = {"complete": False}
 processing_status_fetch = {"complete": False}
@@ -128,7 +131,33 @@ def run_query_database(latest_file):
     logger.info("Starting RAG query and summary generation...")
     try:
         prompts = load_prompts(PROMPTS_FILE_PATH)
-        results = {k: query_rag_latest(v, db, model, latest_file) for k, v in prompts.items()}
+        # results = {k: query_rag_latest(v, db, model, latest_file) for k, v in prompts.items()}
+
+        # Get all chunks from DB for this file
+        docs = db.get(include=["metadatas", "documents"])
+        file_chunks = [
+            Document(page_content=text, metadata=meta)
+            for text, meta in zip(docs["documents"], docs["metadatas"])
+            if latest_file in meta.get("source", "")
+        ]
+        logger.info(f"Fetched {len(file_chunks)} chunks for file: {latest_file}")
+
+        # Flatten page contents
+        chunk_texts = [doc.page_content for doc in file_chunks]
+
+        # Answer prompts using direct LLM context-aware pass
+        results = {}
+        for k, v in prompts.items():
+            full_prompt = f"{v}\n\nContext:\n" + "\n---\n".join(chunk_texts[:10])  # Adjust limit as needed
+            try:
+                answer = model.invoke(full_prompt).strip()
+                results[k] = answer
+            except Exception as e:
+                logger.error(f"Error while answering '{k}': {e}")
+                results[k] = f"[Error] {str(e)}"
+
+
+
         logger.info(f"Prompt results: {list(results.keys())}")
         docs = db.get(include=["metadatas", "documents"])
         file_chunks = [
@@ -149,6 +178,58 @@ def run_query_database(latest_file):
         with open("data/error_log.txt", "w") as f:
             f.write(str(e))
         processing_status_fetch["complete"] = "error"
+# def run_query_database(latest_file):
+#     global fetched_results, processing_status_fetch
+#     processing_status_fetch["complete"] = False
+#     logger.info("Starting LLM question-answering and summarization...")
+
+#     try:
+#         prompts = load_prompts(PROMPTS_FILE_PATH)
+
+#         # Get all chunks for the current file
+#         docs = db.get(include=["metadatas", "documents"])
+#         file_chunks = [
+#             Document(page_content=text, metadata=meta)
+#             for text, meta in zip(docs["documents"], docs["metadatas"])
+#             if latest_file in meta.get("source", "")
+#         ]
+
+#         logger.info(f"Processing {len(file_chunks)} chunks for: {latest_file}")
+
+#         results = {}
+#         for qname, qprompt in prompts.items():
+#             best_answer = "Not Specified in the Document"
+#             best_score = 0
+
+#             for chunk in file_chunks:
+#                 try:
+#                     # Prompt with instruction to be short
+#                     prompt = f"{qprompt}\n\nContext:\n{chunk.page_content}\n\nOnly give a short phrase if found, otherwise say 'Not Specified in the Document'."
+#                     response = model.invoke(prompt).strip()
+
+#                     if response and "not specified" not in response.lower():
+#                         score = len(response)  # crude scoring: shorter = better
+#                         if score > best_score:
+#                             best_answer = response
+#                             best_score = score
+#                 except Exception as e:
+#                     logger.error(f"Error answering chunk for '{qname}': {e}")
+
+#             results[qname] = best_answer
+
+#         # Add summary using map-reduce
+#         summary = generate_summary(file_chunks, latest_file)
+#         results["Summary"] = summary
+
+#         fetched_results.update(results)
+#         processing_status_fetch["complete"] = True
+#         logger.info("All questions answered and summary generated.")
+
+#     except Exception as e:
+#         logger.error(f"Error during fetch: {str(e)}")
+#         with open("data/error_log.txt", "w") as f:
+#             f.write(str(e))
+#         processing_status_fetch["complete"] = "error"
 
 
 # ------------------- Helpers -------------------
@@ -173,38 +254,6 @@ def sync_file_registry(removed_files):
             fname = line.strip().split(":")[0]
             if fname not in removed_files:
                 f.write(line)
-
-def generate_summary(chunks, file_name):
-    llm = Ollama(model="llama3.2")
-    chain = load_summarize_chain(llm, chain_type="map_reduce")
-    file_chunks = [chunk for chunk in chunks if os.path.basename(chunk.metadata.get("source", "")) == file_name]
-    # print(f"[DEBUG] Found {len(file_chunks)} chunks for file: {file_name}")
-    # for i, ch in enumerate(file_chunks[:3]):
-    #     print(f"[DEBUG] Chunk {i+1} preview: {ch.page_content[:100]}")
-    # Re-chunk large page_content into smaller sizes
-    logger.debug(f"Found {len(file_chunks)} chunks for summary from: {file_name}")
-    text_splitter = CharacterTextSplitter(separator="\n", chunk_size=800, chunk_overlap=50)
-
-    split_chunks = []
-    for doc in file_chunks:
-        sub_docs = text_splitter.create_documents([doc.page_content])
-        for sub_doc in sub_docs:
-            sub_doc.metadata = doc.metadata  # Preserve original metadata
-        split_chunks.extend(sub_docs)
-    logger.debug(f"After splitting: {len(split_chunks)} chunks")
-    print(f"[DEBUG] After splitting: {len(split_chunks)} chunks")
-    if not split_chunks:
-        return "No content found for summary."
-
-    result = chain.invoke(split_chunks)
-    summary = result["output_text"].strip()
-
-    if summary.lower().startswith("here is a concise summary"):
-        summary = summary.split(":", 1)[-1].strip()
-    logger.info(f"Generated summary for: {file_name}")
-    return summary
-
-    
 
 def load_file_titles():
     titles = []

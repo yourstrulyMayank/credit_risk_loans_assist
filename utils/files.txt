@@ -1,1 +1,2 @@
 monopoly.pdf:23
+Sample_Loan.pdf:15
