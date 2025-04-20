@@ -124,112 +124,74 @@ def run_populate_database(latest_filename):
         processing_status_upload["complete"] = True
         threading.Thread(target=run_query_database, args=(latest_filename,)).start()
 
+def is_low_quality(response: str) -> bool:
+    if not response:
+        return True
+    lowered = response.lower()
+    return (
+        "not specified" in lowered
+        or len(response) < 15  # adjust threshold as needed
+        or response.strip().endswith(":")  # might be an incomplete answer
+    )
+
 
 def run_query_database(latest_file):
     global fetched_results, processing_status_fetch
     processing_status_fetch["complete"] = False
-    logger.info("Starting RAG query and summary generation...")
+    logger.info("Starting hybrid RAG and direct pass QA...")
+
     try:
         prompts = load_prompts(PROMPTS_FILE_PATH)
-        # results = {k: query_rag_latest(v, db, model, latest_file) for k, v in prompts.items()}
 
-        # Get all chunks from DB for this file
         docs = db.get(include=["metadatas", "documents"])
         file_chunks = [
             Document(page_content=text, metadata=meta)
             for text, meta in zip(docs["documents"], docs["metadatas"])
-            if latest_file in meta.get("source", "")
+            if os.path.basename(meta.get("source", "")) == latest_file
         ]
+
         logger.info(f"Fetched {len(file_chunks)} chunks for file: {latest_file}")
 
-        # Flatten page contents
-        chunk_texts = [doc.page_content for doc in file_chunks]
-
-        # Answer prompts using direct LLM context-aware pass
         results = {}
-        for k, v in prompts.items():
-            full_prompt = f"{v}\n\nContext:\n" + "\n---\n".join(chunk_texts[:10])  # Adjust limit as needed
+
+        for question_name, question_text in prompts.items():
             try:
-                answer = model.invoke(full_prompt).strip()
-                results[k] = answer
+                logger.info(f"Processing question: {question_name}")
+
+                # # ------- RAG Strategy ---------
+                # rag_response = query_rag_latest(question_text, db, model, latest_file)
+
+                # # Heuristic to detect poor answers
+                # if is_low_quality(rag_response):
+                #     logger.info(f"RAG answer for '{question_name}' seems low-quality. Using direct context.")
+
+                #     # Fallback: Use direct context (top-N chunks from the current file)
+                #     top_chunks_text = "\n---\n".join([doc.page_content for doc in file_chunks[:10]])
+                #     prompt = f"{question_text}\n\nContext:\n{top_chunks_text}"
+                #     fallback_answer = model.invoke(prompt).strip()
+                #     results[question_name] = fallback_answer
+                # else:
+                #     results[question_name] = rag_response
+                response = query_rag_latest(question_text, db, model, latest_file)
+                results[question_name] = response
+
             except Exception as e:
-                logger.error(f"Error while answering '{k}': {e}")
-                results[k] = f"[Error] {str(e)}"
+                logger.error(f"Error processing question '{question_name}': {e}")
+                results[question_name] = "[Error] " + str(e)
 
-
-
-        logger.info(f"Prompt results: {list(results.keys())}")
-        docs = db.get(include=["metadatas", "documents"])
-        file_chunks = [
-            Document(page_content=text, metadata=meta)
-            for text, meta in zip(docs["documents"], docs["metadatas"])
-            if latest_file in meta.get("source", "")
-        ]
-        logger.info(f"Fetched {len(file_chunks)} chunks for file: {latest_file}")
+        # Add summary last
         summary = generate_summary(file_chunks, latest_file)
         results["Summary"] = summary
-        logger.info(f"Summary generated for file: {latest_file}")
+
         fetched_results.update(results)
         processing_status_fetch["complete"] = True
+        logger.info("All hybrid answers and summary generated.")
 
     except Exception as e:
-        print(f"❌ Error during query: {e}")
-        logger.error(f"Error during query: {str(e)}")
+        logger.error(f"Hybrid QA pipeline failed: {str(e)}")
         with open("data/error_log.txt", "w") as f:
             f.write(str(e))
         processing_status_fetch["complete"] = "error"
-# def run_query_database(latest_file):
-#     global fetched_results, processing_status_fetch
-#     processing_status_fetch["complete"] = False
-#     logger.info("Starting LLM question-answering and summarization...")
-
-#     try:
-#         prompts = load_prompts(PROMPTS_FILE_PATH)
-
-#         # Get all chunks for the current file
-#         docs = db.get(include=["metadatas", "documents"])
-#         file_chunks = [
-#             Document(page_content=text, metadata=meta)
-#             for text, meta in zip(docs["documents"], docs["metadatas"])
-#             if latest_file in meta.get("source", "")
-#         ]
-
-#         logger.info(f"Processing {len(file_chunks)} chunks for: {latest_file}")
-
-#         results = {}
-#         for qname, qprompt in prompts.items():
-#             best_answer = "Not Specified in the Document"
-#             best_score = 0
-
-#             for chunk in file_chunks:
-#                 try:
-#                     # Prompt with instruction to be short
-#                     prompt = f"{qprompt}\n\nContext:\n{chunk.page_content}\n\nOnly give a short phrase if found, otherwise say 'Not Specified in the Document'."
-#                     response = model.invoke(prompt).strip()
-
-#                     if response and "not specified" not in response.lower():
-#                         score = len(response)  # crude scoring: shorter = better
-#                         if score > best_score:
-#                             best_answer = response
-#                             best_score = score
-#                 except Exception as e:
-#                     logger.error(f"Error answering chunk for '{qname}': {e}")
-
-#             results[qname] = best_answer
-
-#         # Add summary using map-reduce
-#         summary = generate_summary(file_chunks, latest_file)
-#         results["Summary"] = summary
-
-#         fetched_results.update(results)
-#         processing_status_fetch["complete"] = True
-#         logger.info("All questions answered and summary generated.")
-
-#     except Exception as e:
-#         logger.error(f"Error during fetch: {str(e)}")
-#         with open("data/error_log.txt", "w") as f:
-#             f.write(str(e))
-#         processing_status_fetch["complete"] = "error"
 
 
 # ------------------- Helpers -------------------

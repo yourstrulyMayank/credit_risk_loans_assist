@@ -1,2 +1,1 @@
-monopoly.pdf:23
-Sample_Loan.pdf:15
+Sample_Loan.pdf:11

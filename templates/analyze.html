@@ -145,47 +145,44 @@
         <a href="/">Credit Risk Loan Assist</a>        
     </nav>
     <h2 style="margin-left: 20px;">Company Name: {{ data['Company Name'] }}</h2>
+
+{% set keys = data.keys() | list %}
+{% set metrics = keys | reject('equalto', 'Company Name') | reject('equalto', 'Summary') | list %}
+
     <div class="container">
-        <!-- Left: Table -->
+        <!-- Left Table: First 5 -->
         <div class="table-container">
             <h2>CARM Form</h2>
             <table>
                 <tr>
                     <th>Metric</th>
                     <th>Value</th>
-                </tr>                
-                <tr>
-                    <td>Net Sales</td>
-                    <td>{{ data['Net Sales'] }}</td>
                 </tr>
+                {% for key in metrics[:5] %}
                 <tr>
-                    <td>Gross Profit</td>
-                    <td>{{ data['Gross Profit'] }}</td>
+                    <td>{{ key }}</td>
+                    <td>{{ data[key] }}</td>
                 </tr>
-                <tr>
-                    <td>Debt/Equity Ratio</td>
-                    <td>{{ data['Debt/Equity Ratio'] }}</td>
-                </tr>
+                {% endfor %}
             </table>
         </div>
 
-        <!-- Right: Questions -->
+        <!-- Right Panel: Next 5 -->
         <div class="question-container">
             <h2>Analysis</h2>
-
-            {% for key, value in data.items() %}
-            {% if key != "Company Name" and key != "Net Sales" and key != "Gross Profit" and key != "Debt/Equity Ratio" and key != "Summary"%}
+            {% for key in metrics[5:] %}
             <div class="question-section">
                 <div class="question-heading">{{ key }}</div>
-                <div class="answer-output">{{ value }}</div>
+                <div class="answer-output">{{ data[key] }}</div>
             </div>
-            {% endif %}
             {% endfor %}
         </div>
     </div>
+
+        
     <div class="summary-container">
         <h2>Summary</h2>
-        <h4>{{ data['Summary'] }}</h4>
+        <div style="white-space: pre-wrap;">{{ data['Summary']|safe }}</div>
     </div>
     <br>
     <!-- Back to Home Button -->

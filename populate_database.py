@@ -120,11 +120,9 @@ def is_image_file(file_path):
 
 def split_documents(documents: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n", " "],
-        chunk_size=800,
-        chunk_overlap=80,
-        length_function=len,
-        is_separator_regex=False,
+    chunk_size=1000,
+    chunk_overlap=200,
+    separators=["\n\n", "\n", ".", " ", ""]
     )
     logger.info(f"Splitting {len(documents)} documents in parallel...")
     def split_single_document(doc):

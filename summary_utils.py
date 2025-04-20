@@ -26,7 +26,12 @@ map_prompt = PromptTemplate.from_template(
 map_chain = map_prompt | llm
 
 reduce_prompt = PromptTemplate.from_template(
-    "The following is a set of summaries:\n{summaries}\nTake these and distill it into a final, consolidated summary of the main themes."
+    """You are a financial analyst. The following are short summaries of different financial sections:
+{summaries}
+
+Using these, write a clear, concise, and well-formatted report summary with headings and bullet points wherever necessary.
+
+Make sure the summary is informative, structured, and professional."""
 )
 reduce_chain = reduce_prompt | llm
 
@@ -35,17 +40,30 @@ reduce_chain = reduce_prompt | llm
 def map_node(state: State) -> State:
     doc = state["docs"].pop(0)
     result = map_chain.invoke({"context": doc.page_content})
-    result_text = result if isinstance(result, str) else result.get("text", "")
-    state["accumulated_summaries"].append(result_text["text"])
+    if isinstance(result, str):
+        result_text = result
+    elif isinstance(result, dict):
+        result_text = result.get("text", "")
+    else:
+        result_text = str(result)
+
+    state["accumulated_summaries"].append(result_text)
     return state
 
 
 def reduce_node(state: State) -> State:
     combined = "\n".join(state["accumulated_summaries"])
     result = reduce_chain.invoke({"summaries": combined})
-    result_text = result if isinstance(result, str) else result.get("text", "")
-    state["final_summary"] = result_text["text"]
+    if isinstance(result, str):
+        result_text = result
+    elif isinstance(result, dict):
+        result_text = result.get("text", "")
+    else:
+        result_text = str(result)
+
+    state["final_summary"] = result_text
     return state
+
 
 
 def should_continue(state: State) -> str:
