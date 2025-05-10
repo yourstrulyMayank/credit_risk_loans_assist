@@ -142,9 +142,10 @@
         <img src="/static/ABCBank.png" alt="Logo">
     </header>
     <nav>
-        <a href="/">Credit Risk Loan Assist</a>        
+        <a href="/">Credit Risk Assist</a>        
     </nav>
     <h2 style="margin-left: 20px;">Company Name: {{ data['Company Name'] }}</h2>
+    <h3 style="margin-left: 20px;">FY Ending: {{ data['FY'] }}</h3><br>
 
 {% set keys = data.keys() | list %}
 {% set metrics = keys | reject('equalto', 'Company Name') | reject('equalto', 'Summary') | list %}
@@ -152,13 +153,13 @@
     <div class="container">
         <!-- Left Table: First 5 -->
         <div class="table-container">
-            <h2>CARM Form</h2>
+            <h2>Credit Application Risk Management Form</h2>
             <table>
                 <tr>
                     <th>Metric</th>
                     <th>Value</th>
                 </tr>
-                {% for key in metrics[:5] %}
+                {% for key in metrics[:7] %}
                 <tr>
                     <td>{{ key }}</td>
                     <td>{{ data[key] }}</td>
@@ -170,7 +171,7 @@
         <!-- Right Panel: Next 5 -->
         <div class="question-container">
             <h2>Analysis</h2>
-            {% for key in metrics[5:] %}
+            {% for key in metrics[7:] if (key != 'Company Name' and key != 'FY') %}
             <div class="question-section">
                 <div class="question-heading">{{ key }}</div>
                 <div class="answer-output">{{ data[key] }}</div>
