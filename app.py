@@ -182,8 +182,9 @@ def run_query_database(latest_file):
         # Add summary last
         summary = generate_summary(file_chunks, latest_file)
         results["Summary"] = summary
-
-        fetched_results.update(results)
+        refined_results = refine_answers_with_llm(results, prompts, model)
+        fetched_results.update(refined_results)
+        # fetched_results.update(results)
         processing_status_fetch["complete"] = True
         logger.info("All hybrid answers and summary generated.")
 
@@ -203,6 +204,47 @@ def update_file_registry(filename):
         lines = [line.strip().split(':')[0] for line in f.readlines()]
         if filename not in lines:
             f.write(f"{filename}:\n")
+
+def refine_answers_with_llm(results: dict, prompts: dict, model, refine_prompt_path="utils/refine_prompt.txt") -> dict:
+    """
+    Refines the answers using an LLM and an external prompt template.
+    
+    Args:
+        results (dict): Dictionary of {question_name: answer_from_rag}
+        prompts (dict): Dictionary of {question_name: question_text}
+        model: LLM instance with an `invoke(prompt)` method
+        refine_prompt_path (str): Path to the refinement prompt template
+    
+    Returns:
+        dict: Refined answers
+    """
+    try:
+        with open(refine_prompt_path, "r") as f:
+            prompt_template = f.read()
+    except Exception as e:
+        logger.error(f"Error loading refine prompt from {refine_prompt_path}: {e}")
+        return {k: "[Refinement prompt missing]" for k in results}
+
+    refined = {}
+
+    for question_name, original_answer in results.items():
+        if question_name == "Summary":
+            refined[question_name] = original_answer
+            continue
+
+        try:
+            question_text = prompts.get(question_name, "")
+            prompt = prompt_template.format(
+                context=original_answer,
+                question=question_text
+            )
+            refined_answer = model.invoke(prompt).strip()
+            refined[question_name] = refined_answer
+        except Exception as e:
+            logger.error(f"Error refining '{question_name}': {e}")
+            refined[question_name] = "[Error during refinement] " + str(e)
+
+    return refined
 
 
 def sync_file_registry(removed_files):
